@@ -6,6 +6,7 @@
             "email": "feruzostonov3@gmail.com"
         }
     ],
+    "version": "V0.0.1",
     "description": "Yii 2 Advanced Project Starter kids",
     "keywords": ["yii2", "framework", "advanced", "project template", "docker"],
     "type": "project",
