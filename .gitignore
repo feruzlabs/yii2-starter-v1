@@ -5,6 +5,9 @@
 /web/index-test.php
 /web/index.php
 /.claude
+/frontend/runtime
+/backend/runtime
+/api/runtime
 
 # IDE
 /.idea/

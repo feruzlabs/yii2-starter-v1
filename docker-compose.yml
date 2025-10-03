@@ -8,25 +8,26 @@ services:
       dockerfile: Dockerfile
     container_name: yii2_nginx
     ports:
-      - "8080:80"      # Frontend
-      - "8081:81"      # Backend
-      - "8082:82"      # API
-      - "443:443"
+      - "80:80"        # Frontend
+      - "81:81"        # Backend
+      - "82:82"        # API
+      - "443:443"      # HTTPS
     volumes:
-      - ./api:/var/www/api
-      - ./backend:/var/www/backend
-      - ./frontend:/var/www/frontend
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./docker/nginx/api.conf:/etc/nginx/conf.d/api.conf
-      - ./docker/nginx/backend.conf:/etc/nginx/conf.d/backend.conf
-      - ./docker/nginx/frontend.conf:/etc/nginx/conf.d/frontend.conf
+      - ./api:/var/www/api:ro
+      - ./backend:/var/www/backend:ro
+      - ./frontend:/var/www/frontend:ro
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/api.conf:/etc/nginx/conf.d/api.conf:ro
+      - ./docker/nginx/backend.conf:/etc/nginx/conf.d/backend.conf:ro
+      - ./docker/nginx/frontend.conf:/etc/nginx/conf.d/frontend.conf:ro
       - nginx_logs:/var/log/nginx
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - php-fpm
     networks:
       - frontend_net
       - backend_net
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
@@ -42,25 +43,28 @@ services:
       args:
         PHP_VERSION: "8.3"
     container_name: yii2_php_fpm
-    ports:
-      - "9001:9001"  # FPM status endpoint
+    expose:
+      - "9000"
     volumes:
-      - ./api:/var/www/api
-      - ./backend:/var/www/backend
-      - ./frontend:/var/www/frontend
-      - ./common:/var/www/common
-      - ./console:/var/www/console
-      - ./migrations:/var/www/migrations
-      - ./vendor:/var/www/vendor
-      - ./composer.json:/var/www/composer.json
-      - ./composer.lock:/var/www/composer.lock
-      - ./docker/php-fpm/php.ini:/usr/local/etc/php/php.ini
-      - ./docker/php-fpm/www.conf:/usr/local/etc/php-fpm.d/www.conf
-      - ./docker/php-fpm/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+      - ./api:/var/www/api:ro
+      - ./backend:/var/www/backend:ro
+      - ./frontend:/var/www/frontend:ro
+      - ./common:/var/www/common:ro
+      - ./console:/var/www/console:ro
+      - ./migrations:/var/www/migrations:ro
+      - ./vendor:/var/www/vendor:ro
+      - ./composer.json:/var/www/composer.json:ro
+      - ./composer.lock:/var/www/composer.lock:ro
+      - ./docker/php-fpm/php.ini:/usr/local/etc/php/php.ini:ro
+      - ./docker/php-fpm/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+      - ./docker/php-fpm/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
       - php_logs:/var/log/php-fpm
+      - php_sessions:/var/www/sessions
     environment:
-      - PHP_IDE_CONFIG=serverName=Docker
-      - XDEBUG_MODE=${XDEBUG_MODE:-off}
+      - PHP_IDE_CONFIG=serverName=Production
+      - XDEBUG_MODE=off
+      - YII_ENV=prod
+      - YII_DEBUG=0
     depends_on:
       pgsql:
         condition: service_healthy
@@ -70,13 +74,21 @@ services:
         condition: service_healthy
     networks:
       - backend_net
-    restart: unless-stopped
-    # healthcheck:
-    #   test: ["CMD-SHELL", "php-fpm -t"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 60s
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # PostgreSQL 15
   pgsql:
@@ -84,19 +96,19 @@ services:
       context: ./docker/postgresql
       dockerfile: Dockerfile
     container_name: yii2_pgsql
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     environment:
       POSTGRES_DB: ${DB_NAME:-yii2advanced}
       POSTGRES_USER: ${DB_USERNAME:-yii2}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-      POSTGRES_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secret}
     volumes:
       - pgsql_data:/var/lib/postgresql/data
-      - ./docker/postgresql/init:/docker-entrypoint-initdb.d
+      - ./docker/postgresql/init:/docker-entrypoint-initdb.d:ro
+      - pgsql_backups:/backups
     networks:
       - backend_net
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${DB_USERNAME:-yii2}"]
       interval: 10s
@@ -111,20 +123,36 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "default_statistics_target=100"
 
   # Redis 7
   redis:
     image: redis:7-alpine
     container_name: yii2_redis
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes --save 60 1000
     networks:
       - backend_net
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -146,20 +174,20 @@ services:
       context: ./docker/rabbitmq
       dockerfile: Dockerfile
     container_name: yii2_rabbitmq
-    ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
+    expose:
+      - "5672"
+      - "15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
-      - ./docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./docker/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     networks:
       - backend_net
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 30s
@@ -227,6 +255,8 @@ networks:
 volumes:
   pgsql_data:
     driver: local
+  pgsql_backups:
+    driver: local
   redis_data:
     driver: local
   rabbitmq_data:
@@ -238,4 +268,6 @@ volumes:
   nginx_logs:
     driver: local
   php_logs:
+    driver: local
+  php_sessions:
     driver: local
