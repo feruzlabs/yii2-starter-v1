@@ -1,0 +1,51 @@
+# Yii2
+/vendor/
+/runtime/
+/web/assets/
+/web/index-test.php
+/web/index.php
+
+# IDE
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+/log/
+/logs/
+
+# Database
+*.sql
+*.sqlite
+
+# OS
+Thumbs.db
+
+# Composer
+composer.phar
+composer.lock
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Docker
+/docker/*/data/
+/docker/volumes/
+
+# Tests
+/tests/_output/
+/tests/_support/_generated/
+
+# Backups
+*.bak
+*.backup

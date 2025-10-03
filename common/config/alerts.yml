@@ -1,0 +1,56 @@
+alerts:
+  fpm_warning:
+    severity: warning
+    channels:
+      - log
+      - telegram
+    throttle: 300  # 5 minutes
+
+  fpm_critical:
+    severity: critical
+    channels:
+      - log
+      - telegram
+      - email
+    throttle: 600  # 10 minutes
+
+  high_error_rate:
+    severity: error
+    channels:
+      - log
+      - telegram
+    throttle: 300
+
+  circuit_breaker_open:
+    severity: warning
+    channels:
+      - log
+      - telegram
+    throttle: 600
+
+  throttle_activated:
+    severity: warning
+    channels:
+      - log
+    throttle: 300
+
+  rate_limit_exceeded:
+    severity: info
+    channels:
+      - log
+    throttle: 60
+
+  database_slow_query:
+    severity: warning
+    channels:
+      - log
+      - telegram
+    throttle: 300
+
+  queue_overload:
+    severity: error
+    channels:
+      - log
+      - telegram
+      - email
+    throttle: 600
