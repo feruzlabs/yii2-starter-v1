@@ -4,6 +4,7 @@
 /web/assets/
 /web/index-test.php
 /web/index.php
+/.claude
 
 # IDE
 /.idea/
