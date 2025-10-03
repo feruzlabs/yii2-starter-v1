@@ -1,8 +1,13 @@
 {
-    "name": "yiisoft/yii2-app-advanced",
-    "description": "Yii 2 Advanced Project Template with Docker",
+    "name": "feruz/yii2-starter-v1",
+    "authors": [
+        {
+            "name": "Feruz",
+            "email": "feruzostonov3@gmail.com"
+        }
+    ],
+    "description": "Yii 2 Advanced Project Starter kids",
     "keywords": ["yii2", "framework", "advanced", "project template", "docker"],
-    "homepage": "https://www.yiiframework.com/",
     "type": "project",
     "license": "BSD-3-Clause",
     "support": {
